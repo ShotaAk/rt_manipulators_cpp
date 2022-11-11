@@ -29,21 +29,12 @@ using moment_map_t = std::map<unsigned int, moment_t>;
 bool gravity_compensation(
   const kinematics_utils::links_t & links,
   const kinematics_utils::link_id_t & target_id,
-  const torque_to_current_t & torque_to_current,
-  kinematics_utils::q_list_t & q_list) {
+  kinematics_utils::q_list_t & tau_list) {
   // 運動方程式から重力補償トルク項のみを計算し、電流値に変換する
   // 参考：細田耕. 「実践ロボット制御 -基礎から動力学まで-」. オーム社, p137, 2019
 
   // 根本から手先までのリンク経路を取得
   auto route = kinematics_utils::find_route(links, target_id);
-
-  // トルク電流比がセットされているか検証
-  for (const auto & link_i : route) {
-    if (torque_to_current.count(link_i) == 0) {
-      std::cout << "リンクID:" << link_i << "のトルク電流比がセットされていません" << std::endl;
-      return false;
-    }
-  }
 
   // 計算に使用する変数
   pos_map_t dd_p;  // 加速度ベクトル
@@ -104,9 +95,7 @@ bool gravity_compensation(
       + links[link_i].c.cross(f_hat[link_i]);
 
     // モーメントを回転トルクに分解する
-    q_list[link_i] = links[link_i].a.transpose() * n[link_i];
-    // トルクを電流値に変換する
-    q_list[link_i] *= torque_to_current.at(link_i);
+    tau_list[link_i] = links[link_i].a.transpose() * n[link_i];
   }
 
   return true;

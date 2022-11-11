@@ -82,6 +82,24 @@ void set_arm_joint_positions(std::vector<manipulators_link::Link> & links,
   }
 }
 
+kinematics_utils::q_list_t impedance(
+  kinematics_utils::links_t & links,
+  const Eigen::VectorXd & target_r,
+  const Eigen::VectorXd & D, const Eigen::VectorXd & K) {
+
+  kinematics_utils::q_list_t tau = {
+    {2, 0.0},
+    {3, 0.0},
+    {4, 0.0},
+    {5, 0.0},
+    {6, 0.0},
+    {7, 0.0},
+    {8, 0.0}
+  };
+
+  return tau;
+}
+
 int main() {
   std::cout << "現在姿勢をもとに重力補償トルクを計算し、"
             << "CRANE-X7のサーボモータに入力するサンプルです" << std::endl;
@@ -130,7 +148,7 @@ int main() {
   // 使用しない軸の目標角度を0 degにする
   hardware.set_position("joint3", 0);
 
-  kinematics_utils::q_list_t q_list;
+  kinematics_utils::q_list_t tau_g_list;
   kinematics_utils::link_id_t target_id = 8;
   // トルク・電流比 A/Nm
   // Dynamixelのe-manualに記載されたパラメータをもとに微調整しています
@@ -161,9 +179,25 @@ int main() {
 
     // ここで重力補償分の電流値を計算
     samples03_dynamics::gravity_compensation(
-      links, target_id, torque_to_current, q_list);
-    for (const auto & [target_id, q_value] : q_list) {
-      hardware.set_current(links[target_id].dxl_id, q_value);
+      links, target_id, tau_g_list);
+
+    // インピーダンスを計算
+    Eigen::VectorXd D(6);
+    Eigen::VectorXd K(6);
+    D << 0, 0, 0, 0, 0, 0;
+    K << 0, 0, 0, 0, 0, 0;
+    Eigen::VectorXd target_r(6);
+    target_r << 0.2, 0.0, 0.2,
+      0.0, 0.0, 0.0;
+    auto tau_i_list = impedance(links, target_r, D, K);
+
+    for (const auto & [target_id, tau_g] : tau_g_list) {
+      // トルクを加算
+      double tau = tau_g + tau_i_list[target_id];
+      // トルクを電流値に変換
+      auto q = torque_to_current.at(target_id) * tau;
+      // 目標電流値を書き込む
+      hardware.set_current(links[target_id].dxl_id, q);
     }
   }
 

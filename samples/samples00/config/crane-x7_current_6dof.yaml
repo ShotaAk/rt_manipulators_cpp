@@ -11,6 +11,7 @@ joint_groups:
     sync_read:
       - position
     sync_write:
+      - position
       - current
   hand:
     joints:
