@@ -85,6 +85,7 @@ void set_arm_joint_positions(std::vector<manipulators_link::Link> & links,
 kinematics_utils::q_list_t impedance(
   kinematics_utils::links_t & links,
   const Eigen::Vector3d & target_pos, const Eigen::Matrix3d & target_R,
+  const Eigen::Vector3d & target_vel, const Eigen::Vector3d & target_omega,
   const Eigen::MatrixXd & D, const Eigen::MatrixXd & K) {
 
   kinematics_utils::q_list_t tau_list = {
@@ -97,19 +98,35 @@ kinematics_utils::q_list_t impedance(
   };
 
   const int EEF_LINK_ID = 7;
+
+  // 情報の更新
   auto present_pos = links[EEF_LINK_ID].p;
   auto present_R = links[EEF_LINK_ID].R;
+  static Eigen::Vector3d prev_pos = present_pos;
+  static Eigen::Matrix3d prev_R = present_R;
+
+  auto present_vel = present_pos - prev_pos;
+  auto present_omega = kinematics_utils::calc_error_R(present_R, prev_R);
+
+  prev_pos = present_pos;
+  prev_R = present_R;
 
   Eigen::VectorXd diff_r(6);
   diff_r << present_pos - target_pos,
     kinematics_utils::calc_error_R(present_R, target_R);
 
-  auto J = kinematics_utils::calc_basic_jacobian(links, EEF_LINK_ID);
-  auto tau = -J.transpose() * K * diff_r;
+  Eigen::VectorXd diff_dr(6);
+  diff_dr << present_vel - target_vel,
+    present_omega - target_omega;
 
-  // std::cout << "姿勢 Z:" << diff_r[3] * 180.0 / M_PI << "\t[deg]" << std::endl;
-  // std::cout << "姿勢 Y:" << diff_r[4] * 180.0 / M_PI << "\t[deg]" << std::endl;
-  // std::cout << "姿勢 X:" << diff_r[5] * 180.0 / M_PI << "\t[deg]" << std::endl;
+  auto J = kinematics_utils::calc_basic_jacobian(links, EEF_LINK_ID);
+  auto tau = -J.transpose() * (D * diff_dr + K * diff_r);
+
+  // std::cout << "vel X: " <<  diff_dr[0] << "\t[m/s]" << std::endl;
+  // std::cout << "vel Y: " <<  diff_dr[1] << "\t[m/s]" << std::endl;
+  // std::cout << "vel Z: " <<  diff_dr[2] << "\t[m/s]" << std::endl;
+  // std::cout << "姿勢 Y:" << present_omega[1] * 180.0 / M_PI << "\t[deg]" << std::endl;
+  // std::cout << "姿勢 X:" << present_omega[2] * 180.0 / M_PI << "\t[deg]" << std::endl;
 
   // ここひどいコード
   for (int i = 0; i < 6; i++) {
@@ -124,7 +141,7 @@ int main() {
             << "CRANE-X7のサーボモータに入力するサンプルです" << std::endl;
 
   std::string port_name = "/dev/ttyUSB0";
-  int baudrate = 3000000;  // 3Mbps
+  int baudrate = 4000000;
   std::string hardware_config_file = "../config/crane-x7_current_6dof.yaml";
   std::string link_config_file = "../config/crane-x7_links_6dof.csv";
 
@@ -208,11 +225,21 @@ int main() {
     // インピーダンスを計算
     Eigen::VectorXd D(6);
     Eigen::VectorXd K(6);
-    D << 0, 0, 0, 0, 0, 0;
-    K << 30.0, 30.0, 30.0, 0.5, 0.5, 0.5;
-    Eigen::Vector3d target_pos(0.3, 0.0, 0.3);
-    Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI_2, 0.0);
-    auto tau_i_list = impedance(links, target_pos, target_R, D.asDiagonal(), K.asDiagonal());
+    D <<
+      3.0, 3.0, 3.0,
+      0.5, 0.5, 0.5;
+    K <<
+      10.0, 10.0, 10.0,  // POS
+      0.5, 0.5, 0.5;  // R
+    Eigen::Vector3d target_pos(0.2, 0.0, 0.2);
+    Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI, 0.0);
+    Eigen::Vector3d target_vel(0.0, 0.0, 0.0);
+    Eigen::Vector3d target_omega(0.0, 0.0, 0.0);
+    auto tau_i_list = impedance(
+      links,
+      target_pos, target_R,
+      target_vel, target_omega,
+      D.asDiagonal(), K.asDiagonal());
 
     for (const auto & [target_id, tau_g] : tau_g_list) {
       // トルクを加算
