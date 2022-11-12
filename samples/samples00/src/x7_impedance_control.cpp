@@ -72,7 +72,7 @@ void set_arm_joint_positions(std::vector<manipulators_link::Link> & links,
                              std::vector<double> positions) {
   // リンクにarmジョイントの現在角度をセットする
   if (positions.size() != 6) {
-    std::cerr << "引数positionsには6個のジョイント角度をセットしてください" << std::endl;
+    std::cerr << "引数positionsには6個のジョイント角 度をセットしてください" << std::endl;
     return;
   }
 
@@ -85,19 +85,43 @@ void set_arm_joint_positions(std::vector<manipulators_link::Link> & links,
 kinematics_utils::q_list_t impedance(
   kinematics_utils::links_t & links,
   const Eigen::VectorXd & target_r,
-  const Eigen::VectorXd & D, const Eigen::VectorXd & K) {
+  const Eigen::MatrixXd & D, const Eigen::MatrixXd & K) {
 
-  kinematics_utils::q_list_t tau = {
+  kinematics_utils::q_list_t tau_list = {
     {2, 0.0},
     {3, 0.0},
     {4, 0.0},
     {5, 0.0},
     {6, 0.0},
     {7, 0.0},
-    {8, 0.0}
   };
 
-  return tau;
+  const int EEF_LINK_ID = 7;
+  auto pos_xyz = links[EEF_LINK_ID].p;
+  auto euler_zyx = kinematics_utils::rotation_to_euler_ZYX(links[EEF_LINK_ID].R);
+
+  Eigen::VectorXd r(6);
+  r[0] = pos_xyz[0];
+  r[1] = pos_xyz[1];
+  r[2] = pos_xyz[2];
+  r[3] = euler_zyx[0];
+  r[4] = euler_zyx[1];
+  r[5] = euler_zyx[2];
+
+  auto J = kinematics_utils::calc_basic_jacobian(links, EEF_LINK_ID);
+  auto tau = -J.transpose() * K * (r - target_r);
+  // std::cout << "K" << K << std::endl;
+  // std::cout << "r - rd" << r - target_r << std::endl;
+
+  std::cout<<"tau:"<<std::endl;
+  std::cout<<tau<<std::endl;
+
+  // ここひどいコード
+  for (int i = 0; i < 6; i++) {
+    tau_list[i+2] = tau[i];
+  }
+
+  return tau_list;
 }
 
 int main() {
@@ -190,11 +214,11 @@ int main() {
     Eigen::VectorXd D(6);
     Eigen::VectorXd K(6);
     D << 0, 0, 0, 0, 0, 0;
-    K << 0, 0, 0, 0, 0, 0;
+    K << 50.0, 50.0, 50.0, 0, 0, 0;
     Eigen::VectorXd target_r(6);
-    target_r << 0.2, 0.0, 0.2,
+    target_r << 0.3, 0.0, 0.3,
       0.0, 0.0, 0.0;
-    auto tau_i_list = impedance(links, target_r, D, K);
+    auto tau_i_list = impedance(links, target_r, D.asDiagonal(), K.asDiagonal());
 
     for (const auto & [target_id, tau_g] : tau_g_list) {
       // トルクを加算
