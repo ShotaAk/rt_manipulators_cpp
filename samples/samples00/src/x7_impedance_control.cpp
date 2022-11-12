@@ -71,8 +71,8 @@ int kbhit(void) {
 void set_arm_joint_positions(std::vector<manipulators_link::Link> & links,
                              std::vector<double> positions) {
   // リンクにarmジョイントの現在角度をセットする
-  if (positions.size() != 7) {
-    std::cerr << "引数positionsには7個のジョイント角度をセットしてください" << std::endl;
+  if (positions.size() != 6) {
+    std::cerr << "引数positionsには6個のジョイント角度をセットしてください" << std::endl;
     return;
   }
 
@@ -107,7 +107,7 @@ int main() {
   std::string port_name = "/dev/ttyUSB0";
   int baudrate = 3000000;  // 3Mbps
   std::string hardware_config_file = "../config/crane-x7_current_6dof.yaml";
-  std::string link_config_file = "../config/crane-x7_links.csv";
+  std::string link_config_file = "../config/crane-x7_links_6dof.csv";
 
   auto links = kinematics_utils::parse_link_config_file(link_config_file);
   kinematics::forward_kinematics(links, 1);
@@ -134,8 +134,13 @@ int main() {
     return -1;
   }
 
+  if (!hardware.torque_on("sub_joints")) {
+    std::cerr << "sub_jointsグループのトルクをONできませんでした." << std::endl;
+    return -1;
+  }
+
   std::cout << "read/writeスレッドを起動します." << std::endl;
-  std::vector<std::string> group_names = {"arm"};
+  std::vector<std::string> group_names = {"arm", "sub_joints"};
   if (!hardware.start_thread(group_names, std::chrono::milliseconds(10))) {
     std::cerr << "スレッドの起動に失敗しました." << std::endl;
     return -1;
@@ -149,7 +154,7 @@ int main() {
   hardware.set_position("joint3", 0);
 
   kinematics_utils::q_list_t tau_g_list;
-  kinematics_utils::link_id_t target_id = 8;
+  const kinematics_utils::link_id_t EEF_BASE_LINK_ID = 7;
   // トルク・電流比 A/Nm
   // Dynamixelのe-manualに記載されたパラメータをもとに微調整しています
   samples03_dynamics::torque_to_current_t torque_to_current = {
@@ -179,7 +184,7 @@ int main() {
 
     // ここで重力補償分の電流値を計算
     samples03_dynamics::gravity_compensation(
-      links, target_id, tau_g_list);
+      links, EEF_BASE_LINK_ID, tau_g_list);
 
     // インピーダンスを計算
     Eigen::VectorXd D(6);
@@ -195,9 +200,10 @@ int main() {
       // トルクを加算
       double tau = tau_g + tau_i_list[target_id];
       // トルクを電流値に変換
-      auto q = torque_to_current.at(target_id) * tau;
+      auto dxl_id = links[target_id].dxl_id;
+      auto q = torque_to_current.at(dxl_id) * tau;
       // 目標電流値を書き込む
-      hardware.set_current(links[target_id].dxl_id, q);
+      hardware.set_current(dxl_id, q);
     }
   }
 
