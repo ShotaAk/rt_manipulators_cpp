@@ -226,13 +226,13 @@ int main() {
     Eigen::VectorXd D(6);
     Eigen::VectorXd K(6);
     D <<
-      3.0, 3.0, 3.0,
-      0.5, 0.5, 0.5;
+      0.0, 0.0, 0.0,
+      30.0, 30.0, 30.0;
     K <<
-      20.0, 20.0, 20.0,  // POS
-      0.5, 0.5, 0.5;  // R
+      0.0, 0.0, 0.0,  // POS
+      0.7, 0.7, 0.7;  // R
     Eigen::Vector3d target_pos(0.2, 0.0, 0.2);
-    Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI, 0.0);
+    Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI_2, 0.0);
     Eigen::Vector3d target_vel(0.0, 0.0, 0.0);
     Eigen::Vector3d target_omega(0.0, 0.0, 0.0);
     auto tau_i_list = impedance(
