@@ -195,11 +195,11 @@ int main() {
   // Dynamixelのe-manualに記載されたパラメータをもとに微調整しています
   samples03_dynamics::torque_to_current_t torque_to_current = {
     {2, 1.0 / 2.20},
-    {3, 1.0 / 3.60},
+    {3, 1.0 / 4.00},
     {4, 1.0 / 2.20},
-    {5, 1.0 / 2.20},
+    {5, 1.0 / 2.50},
     {6, 1.0 / 2.20},
-    {7, 1.0 / 2.20},
+    {7, 1.0 / 2.60},
     {8, 1.0 / 2.20}
   };
 
@@ -229,7 +229,7 @@ int main() {
       3.0, 3.0, 3.0,
       0.5, 0.5, 0.5;
     K <<
-      10.0, 10.0, 10.0,  // POS
+      20.0, 20.0, 20.0,  // POS
       0.5, 0.5, 0.5;  // R
     Eigen::Vector3d target_pos(0.2, 0.0, 0.2);
     Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI, 0.0);
@@ -243,7 +243,9 @@ int main() {
 
     for (const auto & [target_id, tau_g] : tau_g_list) {
       // トルクを加算
-      double tau = tau_g + tau_i_list[target_id];
+      double tau = 0.0;
+      tau += tau_g;  // 重力補償項を加算
+      tau += tau_i_list[target_id];  // インピーダンス制御項を加算
       // トルクを電流値に変換
       auto dxl_id = links[target_id].dxl_id;
       auto q = torque_to_current.at(dxl_id) * tau;
