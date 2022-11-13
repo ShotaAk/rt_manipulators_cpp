@@ -96,6 +96,7 @@ kinematics_utils::q_list_t impedance(
     {6, 0.0},
     {7, 0.0},
   };
+  static kinematics_utils::q_list_t prev_tau_list = tau_list;
 
   const int EEF_LINK_ID = 7;
 
@@ -105,8 +106,20 @@ kinematics_utils::q_list_t impedance(
   static Eigen::Vector3d prev_pos = present_pos;
   static Eigen::Matrix3d prev_R = present_R;
 
-  auto present_vel = present_pos - prev_pos;
-  auto present_omega = kinematics_utils::calc_error_R(present_R, prev_R);
+  // リンク情報が更新されていなかったら、前回のtau_listを返す
+  static std::chrono::system_clock::time_point prev_time = std::chrono::system_clock::now();
+  if (present_pos.isApprox(prev_pos)) {
+    return prev_tau_list;
+  }
+
+  // 経過時間を計測
+  auto now_time = std::chrono::system_clock::now();
+  auto elapsed_time = static_cast<double>(
+    std::chrono::duration_cast<std::chrono::microseconds>(now_time - prev_time).count()) / 1e6;
+  prev_time = now_time;
+
+  auto present_vel = (present_pos - prev_pos) / elapsed_time;
+  auto present_omega = kinematics_utils::calc_error_R(present_R, prev_R) / elapsed_time;
 
   prev_pos = present_pos;
   prev_R = present_R;
@@ -127,6 +140,7 @@ kinematics_utils::q_list_t impedance(
     tau_list[i+2] = tau[i];
   }
 
+  prev_tau_list = tau_list;
   return tau_list;
 }
 
@@ -170,7 +184,7 @@ int main() {
 
   std::cout << "read/writeスレッドを起動します." << std::endl;
   std::vector<std::string> group_names = {"arm", "sub_joints"};
-  if (!hardware.start_thread(group_names, std::chrono::milliseconds(10))) {
+  if (!hardware.start_thread(group_names, std::chrono::milliseconds(5))) {
     std::cerr << "スレッドの起動に失敗しました." << std::endl;
     return -1;
   }
@@ -219,8 +233,8 @@ int main() {
     Eigen::VectorXd D(6);
     Eigen::VectorXd K(6);
     D <<
-      10.0, 10.0, 10.0,
-      0.07, 0.07, 0.07;
+      4.0, 4.0, 4.0,
+      0.002, 0.002, 0.002;
     K <<
       20.0, 20.0, 20.0,  // POS
       0.5, 0.5, 0.5;  // R
