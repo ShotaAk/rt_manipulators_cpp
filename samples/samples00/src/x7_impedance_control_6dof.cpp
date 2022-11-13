@@ -122,12 +122,6 @@ kinematics_utils::q_list_t impedance(
   auto J = kinematics_utils::calc_basic_jacobian(links, EEF_LINK_ID);
   auto tau = -J.transpose() * (D * diff_dr + K * diff_r);
 
-  // std::cout << "vel X: " <<  diff_dr[0] << "\t[m/s]" << std::endl;
-  // std::cout << "vel Y: " <<  diff_dr[1] << "\t[m/s]" << std::endl;
-  // std::cout << "vel Z: " <<  diff_dr[2] << "\t[m/s]" << std::endl;
-  // std::cout << "姿勢 Y:" << present_omega[1] * 180.0 / M_PI << "\t[deg]" << std::endl;
-  // std::cout << "姿勢 X:" << present_omega[2] * 180.0 / M_PI << "\t[deg]" << std::endl;
-
   // ここひどいコード
   for (int i = 0; i < 6; i++) {
     tau_list[i+2] = tau[i];
@@ -137,8 +131,7 @@ kinematics_utils::q_list_t impedance(
 }
 
 int main() {
-  std::cout << "現在姿勢をもとに重力補償トルクを計算し、"
-            << "CRANE-X7のサーボモータに入力するサンプルです" << std::endl;
+  std::cout << "6軸インピーダンス制御" << std::endl;
 
   std::string port_name = "/dev/ttyUSB0";
   int baudrate = 4000000;
@@ -226,12 +219,12 @@ int main() {
     Eigen::VectorXd D(6);
     Eigen::VectorXd K(6);
     D <<
-      0.0, 0.0, 0.0,
-      30.0, 30.0, 30.0;
+      5.0, 5.0, 5.0,
+      0.02, 0.02, 0.02;
     K <<
-      0.0, 0.0, 0.0,  // POS
+      20.0, 20.0, 20.0,  // POS
       0.7, 0.7, 0.7;  // R
-    Eigen::Vector3d target_pos(0.2, 0.0, 0.2);
+    Eigen::Vector3d target_pos(0.2, 0.2, 0.2);
     Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI_2, 0.0);
     Eigen::Vector3d target_vel(0.0, 0.0, 0.0);
     Eigen::Vector3d target_omega(0.0, 0.0, 0.0);

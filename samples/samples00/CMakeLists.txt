@@ -16,7 +16,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(list_samples
     # x7_3dof_inverse_kinematics
     # x7_gravity_compensation
-    x7_impedance_control
+    x7_impedance_control_6dof
 )
 foreach(sample IN LISTS list_samples)
     message("${sample}")
