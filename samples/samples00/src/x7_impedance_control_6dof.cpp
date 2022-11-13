@@ -86,7 +86,7 @@ kinematics_utils::q_list_t impedance(
   kinematics_utils::links_t & links,
   const Eigen::Vector3d & target_pos, const Eigen::Matrix3d & target_R,
   const Eigen::Vector3d & target_vel, const Eigen::Vector3d & target_omega,
-  const Eigen::MatrixXd & D, const Eigen::MatrixXd & K) {
+  const Eigen::MatrixXd & D, const Eigen::MatrixXd & K, const double max_tau) {
 
   kinematics_utils::q_list_t tau_list = {
     {2, 0.0},
@@ -132,8 +132,13 @@ kinematics_utils::q_list_t impedance(
   diff_dr << present_vel - target_vel,
     present_omega - target_omega;
 
+  // 力にリミットを設ける
+  Eigen::VectorXd gain = (D * diff_dr + K * diff_r);
+  for (auto i=0; i < gain.size(); i++) {
+    gain(i) = std::clamp(gain[i], -max_tau, max_tau);
+  }
   auto J = kinematics_utils::calc_basic_jacobian(links, EEF_LINK_ID);
-  auto tau = -J.transpose() * (D * diff_dr + K * diff_r);
+  auto tau = -J.transpose() * gain;
 
   // ここひどいコード
   for (int i = 0; i < 6; i++) {
@@ -236,7 +241,7 @@ int main() {
       4.0, 4.0, 4.0,
       0.002, 0.002, 0.002;
     K <<
-      20.0, 20.0, 20.0,  // POS
+      30.0, 30.0, 30.0,  // POS
       0.5, 0.5, 0.5;  // R
     Eigen::Vector3d target_pos(0.2, 0.2, 0.2);
     Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI_2, 0.0);
@@ -246,7 +251,7 @@ int main() {
       links,
       target_pos, target_R,
       target_vel, target_omega,
-      D.asDiagonal(), K.asDiagonal());
+      D.asDiagonal(), K.asDiagonal(), 2.5);
 
     for (const auto & [target_id, tau_g] : tau_g_list) {
       // トルクを加算
