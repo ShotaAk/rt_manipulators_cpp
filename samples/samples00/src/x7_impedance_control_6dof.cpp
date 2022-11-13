@@ -219,11 +219,11 @@ int main() {
     Eigen::VectorXd D(6);
     Eigen::VectorXd K(6);
     D <<
-      5.0, 5.0, 5.0,
-      0.02, 0.02, 0.02;
+      10.0, 10.0, 10.0,
+      0.07, 0.07, 0.07;
     K <<
       20.0, 20.0, 20.0,  // POS
-      0.7, 0.7, 0.7;  // R
+      0.5, 0.5, 0.5;  // R
     Eigen::Vector3d target_pos(0.2, 0.2, 0.2);
     Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI_2, 0.0);
     Eigen::Vector3d target_vel(0.0, 0.0, 0.0);
