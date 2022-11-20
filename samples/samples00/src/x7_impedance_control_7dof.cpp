@@ -213,11 +213,42 @@ int main() {
   Eigen::Vector3d target_vel(0.0, 0.0, 0.0);
   Eigen::Vector3d target_omega(0.0, 0.0, 0.0);
 
+  Eigen::VectorXd default_D(6);
+  Eigen::VectorXd default_K(6);
+  default_D <<
+    4.0, 4.0, 4.0,
+    0.002, 0.002, 0.002;
+  default_K <<
+    100.0, 100.0, 100.0,  // POS
+    0.8, 0.8, 0.8;  // R
+
+  bool impedance_X = true;
+  bool impedance_Y = true;
+  bool impedance_Z = true;
+  bool impedance_R = true;
+
   while (1) {
     if (kbhit()) {
-      if (getch() == ESC_ASCII_VALUE) {
+      auto key_value = getch();
+      if (key_value == ESC_ASCII_VALUE) {
         std::cout << "Escが入力されました" << std::endl;
         break;
+
+      } else if (key_value == 'x') {
+        impedance_X = !impedance_X;
+        std::cout << "X軸のインピーダンス:" << impedance_X << std::endl;
+
+      } else if (key_value == 'y') {
+        impedance_Y = !impedance_Y;
+        std::cout << "Y軸のインピーダンス:" << impedance_Y << std::endl;
+
+      } else if (key_value == 'z') {
+        impedance_Z = !impedance_Z;
+        std::cout << "Z軸のインピーダンス:" << impedance_Z << std::endl;
+
+      } else if (key_value == 'r') {
+        impedance_R = !impedance_R;
+        std::cout << "R軸のインピーダンス:" << impedance_R << std::endl;
       }
     }
 
@@ -232,16 +263,6 @@ int main() {
     samples03_dynamics::gravity_compensation(
       links, EEF_BASE_LINK_ID, tau_g_list);
 
-    // インピーダンスを計算
-    Eigen::VectorXd D(6);
-    Eigen::VectorXd K(6);
-    D <<
-      4.0, 4.0, 4.0,
-      0.002, 0.002, 0.002;
-    K <<
-      100.0, 100.0, 100.0,  // POS
-      0.8, 0.8, 0.8;  // R
-
     // 手先が開いてるときは、目標姿勢を現在姿勢に更新する
     double hand_angle;
     hardware.get_position("joint_hand", hand_angle);
@@ -250,6 +271,36 @@ int main() {
       target_R = links[EEF_BASE_LINK_ID].R;
     }
 
+    // X,Y,Z軸、姿勢のインピーダンスをON/OFFできる
+    Eigen::VectorXd D(6);
+    Eigen::VectorXd K(6);
+    D.setZero();
+    K.setZero();
+
+    if (impedance_X) {
+      D[0] = default_D[0];
+      K[0] = default_K[0];
+    }
+
+    if (impedance_Y) {
+      D[1] = default_D[1];
+      K[1] = default_K[1];
+    }
+
+    if (impedance_Z) {
+      D[2] = default_D[2];
+      K[2] = default_K[2];
+    }
+
+    if (impedance_R) {
+      // もっとシンプルな書き方ありそう
+      for (auto i=3; i < 6; i++) {
+        D[i] = default_D[i];
+        K[i] = default_K[i];
+      }
+    }
+
+    // インピーダンスを計算
     auto tau_i_list = impedance(
       links,
       target_pos, target_R,
