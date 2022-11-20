@@ -84,6 +84,7 @@ void set_arm_joint_positions(std::vector<manipulators_link::Link> & links,
 
 kinematics_utils::q_list_t impedance(
   kinematics_utils::links_t & links,
+  const Eigen::Vector3d & present_pos, const Eigen::Matrix3d & present_R,
   const Eigen::Vector3d & target_pos, const Eigen::Matrix3d & target_R,
   const Eigen::Vector3d & target_vel, const Eigen::Vector3d & target_omega,
   const Eigen::MatrixXd & D, const Eigen::MatrixXd & K, const double max_tau) {
@@ -102,8 +103,6 @@ kinematics_utils::q_list_t impedance(
   const int EEF_LINK_ID = 8;
 
   // 情報の更新
-  auto present_pos = links[EEF_LINK_ID].p;
-  auto present_R = links[EEF_LINK_ID].R;
   static Eigen::Vector3d prev_pos = present_pos;
   static Eigen::Matrix3d prev_R = present_R;
 
@@ -259,6 +258,12 @@ int main() {
       kinematics::forward_kinematics(links, 1);
     }
 
+    // 現在手先姿勢を取得
+    auto eef_pos = links[EEF_BASE_LINK_ID].p;
+    auto eef_R = links[EEF_BASE_LINK_ID].R;
+    const Eigen::Vector3d TIP_B(0, 0, 0.085);
+    auto eef_tip_pos = links[EEF_BASE_LINK_ID].R * TIP_B + links[EEF_BASE_LINK_ID].p;
+
     // ここで重力補償分の電流値を計算
     samples03_dynamics::gravity_compensation(
       links, EEF_BASE_LINK_ID, tau_g_list);
@@ -267,8 +272,8 @@ int main() {
     double hand_angle;
     hardware.get_position("joint_hand", hand_angle);
     if (hand_angle > M_PI_4) {
-      target_pos = links[EEF_BASE_LINK_ID].p;
-      target_R = links[EEF_BASE_LINK_ID].R;
+      target_pos = eef_tip_pos;
+      target_R = eef_R;
     }
 
     // X,Y,Z軸、姿勢のインピーダンスをON/OFFできる
@@ -303,6 +308,7 @@ int main() {
     // インピーダンスを計算
     auto tau_i_list = impedance(
       links,
+      eef_tip_pos, eef_R,
       target_pos, target_R,
       target_vel, target_omega,
       D.asDiagonal(), K.asDiagonal(), 4.0);
