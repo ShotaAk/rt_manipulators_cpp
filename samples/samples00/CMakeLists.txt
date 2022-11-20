@@ -17,6 +17,7 @@ set(list_samples
     # x7_3dof_inverse_kinematics
     # x7_gravity_compensation
     x7_impedance_control_6dof
+    x7_impedance_control_7dof
 )
 foreach(sample IN LISTS list_samples)
     message("${sample}")
