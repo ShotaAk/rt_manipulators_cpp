@@ -184,7 +184,7 @@ int main() {
   }
 
   std::cout << "read/writeスレッドを起動します." << std::endl;
-  std::vector<std::string> group_names = {"arm"};
+  std::vector<std::string> group_names = {"arm", "hand"};
   if (!hardware.start_thread(group_names, std::chrono::milliseconds(5))) {
     std::cerr << "スレッドの起動に失敗しました." << std::endl;
     return -1;
@@ -207,6 +207,11 @@ int main() {
     {7, 1.0 / 2.60},
     {8, 1.0 / 2.20}
   };
+
+  Eigen::Vector3d target_pos(0.2, 0.2, 0.2);
+  Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI_2, 0.0);
+  Eigen::Vector3d target_vel(0.0, 0.0, 0.0);
+  Eigen::Vector3d target_omega(0.0, 0.0, 0.0);
 
   while (1) {
     if (kbhit()) {
@@ -234,12 +239,17 @@ int main() {
       4.0, 4.0, 4.0,
       0.002, 0.002, 0.002;
     K <<
-      40.0, 40.0, 40.0,  // POS
-      0.5, 0.5, 0.5;  // R
-    Eigen::Vector3d target_pos(0.2, 0.2, 0.2);
-    Eigen::Matrix3d target_R = kinematics_utils::rotation_from_euler_ZYX(0.0, M_PI_2, 0.0);
-    Eigen::Vector3d target_vel(0.0, 0.0, 0.0);
-    Eigen::Vector3d target_omega(0.0, 0.0, 0.0);
+      100.0, 100.0, 100.0,  // POS
+      0.8, 0.8, 0.8;  // R
+
+    // 手先が開いてるときは、目標姿勢を現在姿勢に更新する
+    double hand_angle;
+    hardware.get_position("joint_hand", hand_angle);
+    if (hand_angle > M_PI_4) {
+      target_pos = links[EEF_BASE_LINK_ID].p;
+      target_R = links[EEF_BASE_LINK_ID].R;
+    }
+
     auto tau_i_list = impedance(
       links,
       target_pos, target_R,
