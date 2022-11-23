@@ -14,8 +14,9 @@ find_package(GTest REQUIRED)
 include(GoogleTest)
 
 set(list_tests
-    test_rt_manipulators_ik
-    test_rt_manipulators_dynamics
+    # test_rt_manipulators_ik
+    # test_rt_manipulators_dynamics
+    test_analytical_kinematics
 )
 foreach(test_executable IN LISTS list_tests)
     message("${test_executable}")
@@ -23,6 +24,7 @@ foreach(test_executable IN LISTS list_tests)
         ${test_executable}.cpp
         ../src/rt_manipulators_ik.cpp
         ../src/rt_manipulators_dynamics.cpp
+        ../src/analytical_kinematics.cpp
     )
     target_include_directories(${test_executable} PUBLIC
         ../include

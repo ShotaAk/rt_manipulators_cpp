@@ -25,6 +25,7 @@ foreach(sample IN LISTS list_samples)
         src/${sample}.cpp
         src/rt_manipulators_ik.cpp
         src/rt_manipulators_dynamics.cpp
+        src/analytical_kinematics.cpp
     )
     target_include_directories(${sample} PUBLIC
         include
