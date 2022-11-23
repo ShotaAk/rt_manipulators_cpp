@@ -73,7 +73,7 @@ class X7KinematicsFixture: public ::testing::Test {
 
 
 TEST_F(X7KinematicsFixture, fk) {
-  // link6原点の位置・姿勢を検査する
+  // link6原点位置とlink7原点姿勢が正しく計算されるか検査する
   // ライブラリの順運動学関数の結果と一致することを期待する
 
   Eigen::Vector3d link6_pos(0.0, 0.0, 0.0);
@@ -84,6 +84,7 @@ TEST_F(X7KinematicsFixture, fk) {
   kinematics::forward_kinematics(links, 1);
   analytical_kinematics::fk(links, link6_pos, link6_R);
   expect_vector_approximation(link6_pos, links[7].p);
+  expect_matrix_approximation(link6_R, links[7].R);
 
   // 乱数を使って適当に関節を動かしてもFKが解けることを期待
   std::random_device seed_gen;
@@ -98,6 +99,7 @@ TEST_F(X7KinematicsFixture, fk) {
     kinematics::forward_kinematics(links, 1);
     analytical_kinematics::fk(links, link6_pos, link6_R);
     expect_vector_approximation(link6_pos, links[7].p);
+    expect_matrix_approximation(link6_R, links[8].R);
   }
 }
 
